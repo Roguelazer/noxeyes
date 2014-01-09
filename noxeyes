@@ -1,0 +1,78 @@
+#!/usr/bin/env python
+
+import curses
+import math
+import random
+
+
+class Eye(object):
+    def __init__(self, parent_window, y, x, color_pair_id):
+        self.win = parent_window.derwin(5, 11, y, x)
+        self.win.border()
+        self.color = random.choice([curses.COLOR_BLUE, curses.COLOR_GREEN, curses.COLOR_RED])
+        self.win.bkgd(ord(' '), curses.color_pair(2))
+        curses.init_pair(color_pair_id, curses.COLOR_BLACK, self.color)
+        self.color_pair_id = color_pair_id
+
+    def draw(self, mouse_y, mouse_x):
+        self.win.clear()
+        self.win.border()
+        off = self._get_offsets(mouse_y, mouse_x)
+        self.win.addstr(off[0], off[1], '*', curses.color_pair(self.color_pair_id))
+        self.win.noutrefresh()
+
+    def _get_offsets(self, mouse_y, mouse_x):
+        eye_offset_y, eye_offset_x = self.win.getbegyx()
+        height, width = self.win.getmaxyx()
+        eye_offset_y += (height / 2) + 1
+        eye_offset_x += (width / 2) + 1
+        angle = math.atan2(mouse_y - eye_offset_y, mouse_x - eye_offset_x)
+        pos = int((height / 2) * (math.sin(angle) + 1)), int((width / 2) * (math.cos(angle) + 1))
+        #self.window.addstr(0, 0, "mouse=(%d, %d), pos=(%d, %d)" %(mouse_y, mouse_x, pos[0], pos[1]))
+        return pos
+
+
+class Eyes(object):
+    def __init__(self, parent_window):
+        self.window = parent_window.subwin(20, 40, 20, 20)
+        curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_YELLOW)
+        curses.init_pair(2, curses.COLOR_BLACK, curses.COLOR_WHITE)
+        self.window.bkgd(ord(' '), curses.color_pair(1))
+        self.window.border()
+        self.window.vline(10, 6, curses.ACS_VLINE, 4)
+        self.window.vline(10, 34, curses.ACS_VLINE, 4)
+        self.window.hline(14, 6, curses.ACS_HLINE, 28)
+        self.left_eye = Eye(self.window, 2, 4, 3)
+        self.right_eye = Eye(self.window, 2, 25, 4)
+
+    def draw(self, mouse_y, mouse_x):
+        self.left_eye.draw(mouse_y, mouse_x)
+        self.right_eye.draw(mouse_y, mouse_x)
+        self.window.noutrefresh()
+
+
+def main(win):
+    curses.initscr()
+    curses.start_color()
+    win.keypad(True)
+    curses.mousemask(curses.ALL_MOUSE_EVENTS | curses.REPORT_MOUSE_POSITION)
+
+    eyes = Eyes(win)
+    win.border()
+    eyes.draw(0, 0)
+    i = 0
+    while True:
+        i += 1
+        win.addstr(0, 0, 'tick %d' % i)
+        event = win.getch()
+        if event == curses.KEY_MOUSE:
+            (_, x, y, __, ___) = curses.getmouse()
+            eyes.draw(y, x)
+        elif event == ord('q'):
+            break
+        elif event > 0:
+            win.addstr(1, 0, str(event))
+        curses.doupdate()
+
+
+curses.wrapper(main)
